@@ -17,41 +17,44 @@ def generate_sample(xmin, xmax, sample_size):
 def calc_design_matrix(x, c, h): # カーネル行列
     return np.exp(-(x[None] - c[:, None]) ** 2 / (2 * h ** 2))
 
+def optimize_param(L, H, x, y):
+    best_l, best_h = None, None
+    k_folds = 5
+    kf = KFold(n_splits=k_folds, shuffle=True)
+    lowest_mse = float('inf')
+    for l in L:
+        for h in H:
+            mse_list = []
+            for train_idx, val_idx in kf.split(x):
+                # 訓練データと検証データに分割
+                x_train, x_val = x[train_idx], x[val_idx]
+                y_train, y_val = y[train_idx], y[val_idx]
+                # 学習
+                k_train = calc_design_matrix(x_train, x_train, h)
+                theta = np.linalg.solve(k_train.T.dot(k_train) + l * np.identity(len(k_train)), k_train.T.dot(y_train[:, None]))
+                # 検証
+                k_val = calc_design_matrix(x_train, x_val, h)
+                y_pred = k_val.dot(theta)
+                mse = mean_squared_error(y_val, y_pred)
+                mse_list.append(mse)
+            # MSEの平均を計算
+            mse_mean = np.mean(mse_list)
+            if mse_mean < lowest_mse:
+                lowest_mse = mse_mean
+                best_l, best_h = l, h
+    return best_l, best_h
+                
 # create sample
 sample_size = 50
 xmin, xmax = -3, 3
 x, y = generate_sample(xmin, xmax, sample_size)
 
-# k-fold cross-validation
-best_l, best_h = None, None
+# k-fold cross-validationによるパラメータ選択
 L = [0.01, 0.1, 1, 10]
 H = [0.1, 0.5, 1.0, 1.5]
-k_folds = 5
-kf = KFold(n_splits=k_folds, shuffle=True)
-lowest_mse = float('inf')
-
-for l in L:
-    for h in H:
-        mse_list = []
-        for train_idx, val_idx in kf.split(x):
-            # 訓練データと検証データに分割
-            x_train, x_val = x[train_idx], x[val_idx]
-            y_train, y_val = y[train_idx], y[val_idx]
-            # 学習
-            k_train = calc_design_matrix(x_train, x_train, h)
-            theta = np.linalg.solve(k_train.T.dot(k_train) + l * np.identity(len(k_train)), k_train.T.dot(y_train[:, None]))
-            # 検証
-            k_val = calc_design_matrix(x_train, x_val, h)
-            y_pred = k_val.dot(theta)
-            mse = mean_squared_error(y_val, y_pred)
-            mse_list.append(mse)
-        # MSEの平均を計算
-        mse_mean = np.mean(mse_list)
-        if mse_mean < lowest_mse:
-            lowest_mse = mse_mean
-            best_l, best_h = l, h
-
+best_l, best_h = optimize_param(L, H, x, y)
 print('Best (l, h): ({}, {})'.format(best_l, best_h))
+
 # 最適なパラメータで学習
 k = calc_design_matrix(x, x, best_h)
 theta = np.linalg.solve(k.T.dot(k) + best_l * np.identity(len(k)), k.T.dot(y[:, None]))
