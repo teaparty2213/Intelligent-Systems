@@ -1,4 +1,4 @@
-# 知能システム論 第2回 課題1 2値分類問題を最小2乗回帰で解く
+# 知能システム論 第2回 ガウスカーネルの2値分類問題を最小2乗回帰で解く
 
 import numpy as np
 import matplotlib.pyplot as plt
